@@ -1,0 +1,79 @@
+import os
+from flask import Flask, render_template, request, url_for, redirect
+from flask_sqlalchemy import SQLAlchemy
+
+from sqlalchemy.sql import func
+
+app = Flask(__name__)
+
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] ='sqlite:///' + os.path.join(basedir, 'database.db')
+#app.config['SQLALCHEMY_DATABASE_URI'] ='mysql://root:''@localhost/base'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ECHO'] = True
+
+db = SQLAlchemy(app)
+
+app.app_context().push()
+
+class Entreprise(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    model = db.Column(db.String(100), nullable=False)
+    marque = db.Column(db.String(100), nullable=False)
+    numero = db.Column(db.String(100), nullable=False)
+    date_fab = db.Column(db.DateTime(timezone=True),
+                           server_default=func.now())
+
+    def save(self):
+    	db.session.add(self)
+    	db.session.commit()
+
+    def __repr__(self):
+        return f'<Entreprise {self.model}>'
+
+db.create_all()
+
+@app.route('/', methods = ['POST','GET'])
+def index():
+	all_data=Entreprise.query.all()
+	if request.method=='POST':
+		mod = request.form['model']
+		mrq = request.form['marque']
+		num = request.form['numero']
+
+		data = Entreprise(model=mod,marque=mrq,numero=num)
+		data.save()
+
+		return redirect(url_for('index'))
+
+	return render_template('index.html', data=all_data)
+
+@app.route('/delete/<int:id>')
+def delete1(id):
+	data = Entreprise.query.get_or_404(id)
+	db.session.delete(data)
+	db.session.commit()
+	
+	return redirect(url_for('index'))
+
+@app.route('/<int:id>/edit/', methods = ['POST','GET'])
+def edit(id):
+	data = Entreprise.query.get_or_404(id)
+	if request.method=='POST':
+		mod = request.form['model']
+		mrq = request.form['marque']
+		num = request.form['numero']
+
+		data.model = mod
+		data.marque = mrq
+		data.num = num
+
+		data.save()
+
+		return redirect(url_for('index'))
+	return render_template('edit.html', data=data)
+
+
+if __name__ == '__main__':
+	app.run()
